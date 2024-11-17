@@ -46,12 +46,15 @@ class TRVZBDevice extends ZigBeeDevice {
       get: 'occupiedHeatingSetpoint',
       report: 'occupiedHeatingSetpoint',
       reportParser: value => value / 100,
-      set: 'occupiedHeatingSetpoint',
-      setParser: value => ({ occupiedHeatingSetpoint: Math.round(value * 100) }),
       getOpts: {
         getOnStart: true,
       },
     });
+    this.registerCapabilityListener("target_temperature", async (value) => {
+			this.writeAttributes(CLUSTER.THERMOSTAT, {
+				occupiedHeatingSetpoint: value * 100
+			});
+		});
 
     // Initial battery check
     await SonoffHelpers.checkBattery(zclNode, this);
@@ -139,6 +142,24 @@ class TRVZBDevice extends ZigBeeDevice {
       clearInterval(this.batteryCheckInterval);
     }
   }
+
+  async writeAttributes(cluster, attribs) {
+		if ("NAME" in cluster)
+		cluster = cluster.NAME;
+		try {
+			this.log("Write attribute", attribs);
+			this.zclNode.endpoints[1].clusters[cluster]
+				.writeAttributes(attribs) 
+				.then((value) => {			
+					this.log("Write attr", attribs);
+				})
+				.catch(() => {			
+					this.error("Error write attr", attribs);
+				});
+		} catch (error) {
+			this.error('Error (2) read', attribs, error);
+		}
+	}
 }
 
 module.exports = TRVZBDevice;
